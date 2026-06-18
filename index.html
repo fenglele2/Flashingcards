@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>闪记卡 Pro+ 生产力版</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+:root {
+    --primary: #4f46e5;
+    --primary-soft: #eef2ff;
+    --bg: #f1f5f9;
+    --card-bg: #ffffff;
+    --text-main: #1e293b;
+    --text-sub: #64748b;
+    --danger: #f43f5e;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --card-opacity: 1;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; }
+body { background-color: var(--bg); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+.background-container {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: -1; background-size: cover; background-position: center; opacity: 0.3;
+}
+
+header { background: var(--card-bg); padding: 0.8rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; }
+.nav-slider { background: #f1f5f9; padding: 4px; border-radius: 12px; display: flex; }
+.nav-slider button { border: none; padding: 8px 24px; border-radius: 8px; cursor: pointer; background: transparent; color: var(--text-sub); font-weight: 600; transition: 0.3s; }
+.nav-slider button.active { color: var(--primary); background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+main { flex: 1; padding: 1.5rem; overflow-y: auto; display: flex; flex-direction: column; align-items: center; }
+.view-section { width: 100%; max-width: 1000px; display: none; }
+.view-section.active { display: block; animation: fadeIn 0.4s; }
+
+.dashboard { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; width: 100%; }
+.stat-card { background: white; padding: 15px; border-radius: 15px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.stat-val { font-size: 1.5rem; font-weight: 800; color: var(--primary); }
+.stat-label { font-size: 0.75rem; color: var(--text-sub); }
+
+.flashcard {
+    background: white; border-radius: 30px; padding: 4rem 2rem; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05);
+    min-height: 480px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; width: 100%; position: relative;
+    background-color: rgba(255, 255, 255, var(--card-opacity));
+}
+.word-box { text-align: center; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.main-word { font-size: 4rem; font-weight: 800; letter-spacing: -1px; }
+.pos-tag { font-size: 1.1rem; color: var(--primary); font-style: italic; font-weight: 400; margin-left: 12px; }
+.action-area { margin-top: 4rem; display: flex; gap: 2rem; justify-content: center; width: 100%; }
+
+.control-bar { background: white; padding: 12px 25px; border-radius: 15px; display: flex; gap: 15px; align-items: center; width: 100%; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 15px; }
+.control-bar select { border: 1px solid #e2e8f0; padding: 6px 12px; border-radius: 8px; font-weight: 500; outline: none; }
+.timer-wrap { width: 100%; height: 6px; background: #e2e8f0; position: absolute; top: 0; left: 0; border-radius: 30px 30px 0 0; overflow: hidden; }
+.timer-bar { height: 100%; background: linear-gradient(90deg, var(--warning), var(--danger)); width: 100%; transition: width linear; }
+
+.slider-switch { display: flex; align-items: center; gap: 12px; font-size: 0.85rem; color: var(--text-sub); }
+.slider-container { position: relative; width: 52px; height: 26px; }
+.slider-checkbox { opacity: 0; width: 0; height: 0; }
+.slider-track { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e2e8f0; transition: .3s; border-radius: 34px; }
+.slider-track:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+.slider-checkbox:checked + .slider-track { background-color: var(--primary); }
+.slider-checkbox:checked + .slider-track:before { transform: translateX(26px); }
+.slider-label { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+.slider-label.active { color: var(--primary); }
+
+.batch-del { background: var(--danger); color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; display: none; font-weight: bold; }
+.table-container { background: white; border-radius: 15px; overflow-x: auto; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 15px; text-align: left; border-bottom: 1px solid #f1f5f9; }
+.editable:hover { background: var(--primary-soft); cursor: cell; }
+.btn { padding: 10px 20px; border-radius: 10px; border: none; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.btn-primary { background: var(--primary); color: white; }
+.btn-success { background: var(--success); color: white; }
+.btn-outline { background: white; border: 1px solid #e2e8f0; color: var(--text-sub); }
+
+.translation { margin: 10px auto 0; padding: 8px 15px; background: var(--primary-soft); border-radius: 10px; color: var(--text-main); font-size: 1rem; line-height: 1.4; max-width: 600px; border-left: 3px solid var(--primary); }
+.current-stage { position: absolute; top: 20px; right: 20px; background: var(--primary-soft); padding: 8px 15px; border-radius: 20px; font-size: 0.9rem; font-weight: 600; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+
+@media print {
+    body * { visibility: hidden; }
+    .view-section.active, .view-section.active * { visibility: visible; }
+    .view-section.active { position: absolute; left: 0; top: 0; width: 100%; max-width: 100% !important; }
+    header, .nav-slider, .dashboard, .control-bar, button, .timer-wrap,
+    #batch-del-btn, input[type="checkbox"], .slider-switch, .btn, .current-stage { display: none !important; }
+    .table-container { box-shadow: none; border: 1px solid #ddd !important; border-radius: 0 !important; overflow: visible; }
+    table { width: 100% !important; border: 1px solid #ddd; font-size: 12pt; }
+    th { background-color: #f8f9fa !important; color: #000 !important; font-weight: bold; border-bottom: 2px solid #ddd !important; }
+    td, th { border: 1px solid #ddd !important; padding: 10px !important; color: #000 !important; }
+    tr:nth-child(even) { background-color: #f9f9f9 !important; }
+    th:first-child, td:first-child { display: none !important; }
+    th:nth-child(5), td:nth-child(5), th:nth-child(6), td:nth-child(6), th:nth-child(7), td:nth-child(7) { display: none !important; }
+    tr { page-break-inside: avoid; }
+}
+
+.calendar-container { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); width: 100%; max-width: 800px; margin: 0 auto; }
+.calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.calendar-nav { display: flex; gap: 10px; }
+.calendar-nav button { background: var(--primary); color: white; border: none; border-radius: 8px; padding: 8px 15px; cursor: pointer; }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+.calendar-day { padding: 10px; text-align: center; border-radius: 8px; cursor: pointer; transition: background-color 0.2s; }
+.calendar-day:hover { background: var(--primary-soft); }
+.calendar-day.current-month { background: #f8fafc; }
+.calendar-day.empty { background: transparent; cursor: default; }
+.calendar-day.missed { background: #fee2e2; color: var(--danger); font-weight: bold; }
+.calendar-day.today { background: var(--primary); color: white; font-weight: bold; }
+.calendar-day.completed { background: var(--success); color: white; font-weight: bold; }
+
+.day-detail-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+.day-detail-content { background: white; border-radius: 15px; padding: 20px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.close-modal { background: var(--danger); color: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; }
+.missed-words-list { list-style: none; padding: 0; }
+.missed-words-list li { padding: 8px 0; border-bottom: 1px solid #e2e8f0; }
+
+.copyright { text-align: center; margin-top: 20px; color: #777; font-size: 14px; }
+
+.settings-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+.settings-content { background: white; border-radius: 15px; padding: 20px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+.settings-group { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #e2e8f0; }
+.settings-group h3 { margin-bottom: 10px; color: var(--primary); }
+.setting-item { display: flex; align-items: center; margin-bottom: 10px; }
+.setting-item label { flex: 1; }
+.setting-item input, .setting-item select { padding: 5px 10px; border: 1px solid #e2e8f0; border-radius: 5px; }
+
+.pagination { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 15px; }
+.pagination button { padding: 8px 15px; border: 1px solid #e2e8f0; background: white; border-radius: 5px; cursor: pointer; }
+.pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+.pagination span { color: var(--text-sub); }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<div class="background-container" id="background-container"></div>
+
+<header>
+    <div style="display:flex; align-items:center; gap:10px;">
+        <span style="font-size:1.5rem;">💎</span>
+        <h1 style="font-size:1.1rem;">闪记卡 Pro+</h1>
+    </div>
+    <div class="nav-slider">
+        <button onclick="app.switchTab('learning')" id="nav-learning" class="active">学习</button>
+        <button onclick="app.switchTab('library')" id="nav-library">词库</button>
+        <button onclick="app.switchTab('import')" id="nav-import">导入</button>
+        <button onclick="app.switchTab('calendar')" id="nav-calendar">打卡日历</button>
+        <button onclick="app.openSettings()" id="nav-settings">设置</button>
+    </div>
+</header>
+
+<main>
+    <section id="view-learning" class="view-section active">
+        <div class="dashboard">
+            <div class="stat-card"><div class="stat-val" id="stat-total">0</div><div class="stat-label">总词数</div></div>
+            <div class="stat-card"><div class="stat-val" id="stat-due">0</div><div class="stat-label">待复习</div></div>
+            <div class="stat-card"><div class="stat-val" id="stat-mastered">0</div><div class="stat-label">掌握度(Lv.5)</div></div>
+        </div>
+        <div class="control-bar">
+            <span style="font-size:0.85rem; color:var(--text-sub)">范围:</span>
+            <select id="study-scope" onchange="app.resetSession()"></select>
+            <span style="font-size:0.85rem; color:var(--text-sub); margin-left:10px;">限时:</span>
+            <select id="timer-setting">
+                <option value="0">关闭</option>
+                <option value="3">3秒 (极速)</option>
+                <option value="5" selected>5秒 (标准)</option>
+            </select>
+            <div style="flex:1; text-align:right;">
+                <div class="slider-switch">
+                    <span class="slider-label" id="slider-read-label">📖 识记</span>
+                    <div class="slider-container">
+                        <input type="checkbox" class="slider-checkbox" id="mode-slider" onchange="app.toggleMode()">
+                        <label class="slider-track" for="mode-slider"></label>
+                    </div>
+                    <span class="slider-label" id="slider-spell-label">✍️ 拼写</span>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard">
+            <div class="timer-wrap" id="timer-wrap"><div class="timer-bar" id="timer-bar"></div></div>
+            <div id="current-stage-display" class="current-stage" style="display:none;">
+                <span>熟悉度:</span>
+                <span id="current-stage-value">Lv.0</span>
+            </div>
+            <div class="word-box">
+                <div id="card-main-content"></div>
+                <div id="word-details" style="display:none; margin-top:40px; border-top:1px solid #f1f5f9; padding-top:30px;">
+                    <h2 id="detail-meaning" style="color:var(--primary); margin-bottom:10px;"></h2>
+                    <p id="detail-example" style="font-style:italic; color:var(--text-sub)"></p>
+                    <div id="detail-translation" class="translation"></div>
+                </div>
+            </div>
+            <div class="action-area" id="pre-reveal">
+                <button class="btn btn-primary" style="width:250px; justify-content:center; padding:15px;" onclick="app.reveal()">记不记得？</button>
+            </div>
+            <div class="action-area" id="post-reveal" style="display:none;">
+                <button class="btn btn-outline" style="flex:1; justify-content:center" onclick="app.handleResult(false)">忘了</button>
+                <button class="btn btn-success" style="flex:1; justify-content:center" onclick="app.handleResult(true)">记得</button>
+            </div>
+            <div class="action-area" id="spell-actions" style="display:none;">
+                <button class="btn btn-outline" onclick="app.giveHint()">💡 提示</button>
+                <button class="btn btn-primary" id="btn-chk" onclick="app.checkSpell()">核对</button>
+                <button class="btn btn-success" id="btn-nxt" style="display:none" onclick="app.next()">下一个</button>
+            </div>
+        </div>
+    </section>
+
+    <section id="view-library" class="view-section">
+        <div class="control-bar">
+            <input type="checkbox" id="master-check" onchange="app.toggleAll(this.checked)">
+            <button class="batch-del" id="batch-del-btn" onclick="app.deleteSelected()">删除选中</button>
+            <select id="lib-filter" onchange="app.renderLibrary()"></select>
+            <div style="flex:1; display:flex; gap:10px; justify-content:flex-end;">
+                <button class="btn btn-outline" onclick="app.exportCSV()">📤 导出 CSV</button>
+                <button class="btn btn-primary" onclick="app.printMissed()">🖨️ 打印错词</button>
+            </div>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead><tr><th></th><th>单词</th><th>词性</th><th>释义</th><th>例句</th><th>翻译</th><th>阶段</th></tr></thead>
+                <tbody id="library-tbody"></tbody>
+            </table>
+        </div>
+        <div class="pagination" id="library-pagination"></div>
+    </section>
+
+    <section id="view-import" class="view-section">
+        <div id="import-init">
+            <div style="border:3px dashed #cbd5e1; border-radius:30px; padding:100px; text-align:center; background:white; cursor:pointer;" onclick="document.getElementById('file-input').click()">
+                <input type="file" id="file-input" hidden accept=".csv" onchange="app.handleFile(this.files[0])">
+                <div style="font-size:3rem">📥</div>
+                <h3>点击或拖拽上传 CSV</h3>
+                <p style="color:var(--text-sub); margin-top:10px;">支持格式：word, part_of_speech, meaning, example, translation, pronunciation, category, notes, level</p>
+            </div>
+        </div>
+        <div id="import-preview" style="display:none;">
+            <div class="control-bar">
+                <h3>检查并修改数据</h3>
+                <button class="btn btn-success" style="margin-left:auto" onclick="app.confirmImport()">存入词库</button>
+                <button class="btn btn-outline" onclick="location.reload()">取消</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>单词</th><th>词性</th><th>释义</th><th>例句</th><th>翻译</th><th>分类</th><th>等级</th></tr></thead>
+                    <tbody id="preview-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <section id="view-calendar" class="view-section">
+        <div class="calendar-container">
+            <div class="calendar-header">
+                <h2 id="calendar-title">打卡日历</h2>
+                <div class="calendar-nav">
+                    <button onclick="app.prevMonth()">上月</button>
+                    <button onclick="app.nextMonth()">下月</button>
+                    <button onclick="app.goToToday()">今天</button>
+                    <button onclick="app.importCalendar()">导入</button>
+                    <button onclick="app.exportCalendar()">导出</button>
+                </div>
+            </div>
+            <div class="control-bar">
+                <button class="btn btn-primary" onclick="app.addMakeupCard()">补卡</button>
+            </div>
+            <div id="calendar-grid" class="calendar-grid"></div>
+        </div>
+        <div id="day-detail-modal" class="day-detail-modal" style="display:none;">
+            <div class="day-detail-content">
+                <div class="modal-header">
+                    <h3 id="modal-date-title">日期详情</h3>
+                    <button class="close-modal" onclick="app.closeDayDetail()">×</button>
+                </div>
+                <ul id="missed-words-list" class="missed-words-list"></ul>
+                <div style="margin-top: 15px; display: flex; gap: 10px;">
+                    <button class="btn btn-outline" onclick="app.printDayMissed()">🖨️ 打印今日错词</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div id="settings-modal" class="settings-modal" style="display: none;">
+        <div class="settings-content">
+            <div class="modal-header">
+                <h3>设置</h3>
+                <button class="close-modal" onclick="app.closeSettings()">×</button>
+            </div>
+            <div class="settings-group">
+                <h3>背景设置</h3>
+                <div class="setting-item">
+                    <label for="bg-image">更换背景图片:</label>
+                    <input type="file" id="bg-image" accept=".jpg,.jpeg,.png,.gif,.bmp,.webp" onchange="app.uploadBackgroundImage(this.files[0])">
+                </div>
+            </div>
+            <div class="settings-group">
+                <h3>音频设置</h3>
+                <div class="setting-item">
+                    <label for="speech-rate">发音速度:</label>
+                    <input type="range" id="speech-rate" min="0.5" max="2" step="0.1" value="0.9" onchange="app.setSpeechRate(this.value)">
+                    <span id="rate-value">0.9</span>
+                </div>
+                <div class="setting-item">
+                    <label for="speech-pitch">发音音调:</label>
+                    <input type="range" id="speech-pitch" min="0" max="2" step="0.1" value="1" onchange="app.setSpeechPitch(this.value)">
+                    <span id="pitch-value">1.0</span>
+                </div>
+                <div class="setting-item">
+                    <input type="checkbox" id="enable-audio-before-button" onchange="app.setEnableAudioBeforeButton(this.checked)">
+                    <label for="enable-audio-before-button">点击"记不记得？"前读词汇</label>
+                </div>
+                <div class="setting-item">
+                    <input type="checkbox" id="enable-audio-after-button" onchange="app.setEnableAudioAfterButton(this.checked)">
+                    <label for="enable-audio-after-button">点击"记不记得？"后读例句</label>
+                </div>
+            </div>
+            <div class="settings-group">
+                <h3>界面设置</h3>
+                <div class="setting-item">
+                    <label for="card-opacity">卡片透明度:</label>
+                    <input type="range" id="card-opacity" min="0.1" max="1" step="0.1" value="1" onchange="app.setCardOpacity(this.value)">
+                    <span id="opacity-value">1.0</span>
+                </div>
+                <div class="setting-item">
+                    <label for="items-per-page">词库每页数量:</label>
+                    <input type="number" id="items-per-page" min="10" max="100" value="20" onchange="app.setItemsPerPage(this.value)">
+                </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;">
+                <button class="btn btn-outline" onclick="app.closeSettings()">关闭</button>
+                <button class="btn btn-primary" onclick="app.saveSettings()">保存</button>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div class="copyright">版权归Ch'ien Chou所有</div>
+
+<script>
+class VocabApp {
+    constructor() {
+        this.db = JSON.parse(localStorage.getItem('vocab_v8')) || [];
+        this.queue = [];
+        this.currentIndex = 0;
+        this.mode = 'read';
+        this.isRevealed = false;
+        this.timer = null;
+        this.selectedSet = new Set();
+        this.missedWords = JSON.parse(localStorage.getItem('missed_words')) || {};
+        this.completedDates = JSON.parse(localStorage.getItem('completed_dates')) || [];
+        this.currentMonth = new Date();
+        
+        this.backgroundImage = localStorage.getItem('background_image') || '';
+        this.speechRate = parseFloat(localStorage.getItem('speech_rate')) || 0.9;
+        this.speechPitch = parseFloat(localStorage.getItem('speech_pitch')) || 1.0;
+        this.cardOpacity = parseFloat(localStorage.getItem('card_opacity')) || 1.0;
+        this.itemsPerPage = parseInt(localStorage.getItem('items_per_page')) || 20;
+        
+        this.currentPage = 1;
+        this.totalPages = 0;
+        this.currentView = 'learning';
+        this.currentDateDetail = null;
+        
+        this.enableAudioBeforeButton = localStorage.getItem('enable_audio_before_button') !== 'false';
+        this.enableAudioAfterButton = localStorage.getItem('enable_audio_after_button') !== 'false';
+        
+        // 语音等待相关的 promise 处理
+        this.currentUtterance = null;
+        
+        this.init();
+    }
+
+    init() {
+        this.updateSelectors();
+        this.updateStats();
+        this.resetSession();
+        this.updateSliderLabels();
+        this.renderCalendar();
+        this.applyBackground();
+        this.applyAudioSettings();
+        this.applyCardOpacity();
+        this.updatePagination();
+    }
+
+    // --- 工具方法 ---
+    getTodayStr() {
+        return new Date().toISOString().split('T')[0];
+    }
+
+    getFilteredList(filterValue) {
+        if (filterValue === 'all') return [...this.db];
+        if (filterValue === 'due') return this.db.filter(w => (w.nextReview || 0) <= Date.now());
+        return this.db.filter(w => w.category === filterValue);
+    }
+
+    recordMissedWord(word) {
+        const today = this.getTodayStr();
+        if (!this.missedWords[today]) this.missedWords[today] = [];
+        const exists = this.missedWords[today].some(w => w.word === word.word);
+        if (!exists) {
+            this.missedWords[today].push({ ...word });
+            this.saveMissedWords();
+        }
+    }
+
+    // 持久化快捷方法
+    saveDB() { localStorage.setItem('vocab_v8', JSON.stringify(this.db)); }
+    saveMissedWords() { localStorage.setItem('missed_words', JSON.stringify(this.missedWords)); }
+    saveCompletedDates() { localStorage.setItem('completed_dates', JSON.stringify(this.completedDates)); }
+
+    markTodayCompleted() {
+        const today = this.getTodayStr();
+        if (!this.completedDates.includes(today)) {
+            this.completedDates.push(today);
+            this.saveCompletedDates();
+        }
+    }
+
+    buildQueue(list) {
+        return list.sort(() => Math.random() - 0.5).slice(0, 20);
+    }
+
+    // --- 设置与背景 ---
+    applyBackground() {
+        if (this.backgroundImage) {
+            document.getElementById('background-container').style.backgroundImage = `url(${this.backgroundImage})`;
+        }
+    }
+
+    applyAudioSettings() {
+        document.getElementById('speech-rate').value = this.speechRate;
+        document.getElementById('rate-value').textContent = this.speechRate.toFixed(1);
+        document.getElementById('speech-pitch').value = this.speechPitch;
+        document.getElementById('pitch-value').textContent = this.speechPitch.toFixed(1);
+        document.getElementById('enable-audio-before-button').checked = this.enableAudioBeforeButton;
+        document.getElementById('enable-audio-after-button').checked = this.enableAudioAfterButton;
+    }
+
+    applyCardOpacity() {
+        document.documentElement.style.setProperty('--card-opacity', this.cardOpacity);
+        document.getElementById('card-opacity').value = this.cardOpacity;
+        document.getElementById('opacity-value').textContent = this.cardOpacity.toFixed(1);
+    }
+
+    setSpeechRate(rate) { this.speechRate = parseFloat(rate); document.getElementById('rate-value').textContent = rate; }
+    setSpeechPitch(pitch) { this.speechPitch = parseFloat(pitch); document.getElementById('pitch-value').textContent = pitch; }
+    setCardOpacity(opacity) { this.cardOpacity = parseFloat(opacity); document.documentElement.style.setProperty('--card-opacity', opacity); document.getElementById('opacity-value').textContent = opacity; }
+    setItemsPerPage(count) { this.itemsPerPage = parseInt(count); this.currentPage = 1; if (this.currentView === 'library') this.renderLibrary(); }
+    setEnableAudioBeforeButton(enabled) { this.enableAudioBeforeButton = enabled; }
+    setEnableAudioAfterButton(enabled) { this.enableAudioAfterButton = enabled; }
+
+    saveSettings() {
+        localStorage.setItem('speech_rate', this.speechRate);
+        localStorage.setItem('speech_pitch', this.speechPitch);
+        localStorage.setItem('card_opacity', this.cardOpacity);
+        localStorage.setItem('items_per_page', this.itemsPerPage);
+        localStorage.setItem('enable_audio_before_button', this.enableAudioBeforeButton);
+        localStorage.setItem('enable_audio_after_button', this.enableAudioAfterButton);
+        this.closeSettings();
+    }
+
+    openSettings() {
+        document.getElementById('items-per-page').value = this.itemsPerPage;
+        document.getElementById('settings-modal').style.display = 'flex';
+    }
+
+    closeSettings() { document.getElementById('settings-modal').style.display = 'none'; }
+
+    uploadBackgroundImage(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            this.backgroundImage = e.target.result;
+            localStorage.setItem('background_image', this.backgroundImage);
+            this.applyBackground();
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // --- 学习系统 ---
+    resetSession(includeMissed = false) {
+        const scope = document.getElementById('study-scope').value;
+        let list = this.getFilteredList(scope);
+        if (includeMissed) {
+            const missedToday = this.missedWords[this.getTodayStr()] || [];
+            list = [...list, ...missedToday];
+        }
+        this.queue = this.buildQueue(list);
+        this.currentIndex = 0;
+        this.renderCard();
+    }
+
+    renderCard() {
+        const main = document.getElementById('card-main-content');
+        const detail = document.getElementById('word-details');
+        this.isRevealed = false;
+        clearTimeout(this.timer);
+        document.getElementById('timer-wrap').style.display = 'none';
+
+        if (this.currentIndex >= this.queue.length) {
+            this.markTodayCompleted();
+            main.innerHTML = `<h2>✅ 复习结束</h2><button class="btn btn-primary" onclick="app.resetSession()" style="margin-top:20px">下一组</button>`;
+            detail.style.display = 'none';
+            document.getElementById('pre-reveal').style.display = 'none';
+            document.getElementById('post-reveal').style.display = 'none';
+            document.getElementById('current-stage-display').style.display = 'none';
+            this.renderCalendar();
+            return;
+        }
+
+        const word = this.queue[this.currentIndex];
+        const stageDisplay = document.getElementById('current-stage-display');
+        document.getElementById('current-stage-value').innerText = `Lv.${word.stage || 0}`;
+        stageDisplay.style.display = 'flex';
+
+        if (this.mode === 'read') {
+            main.innerHTML = `<div class="main-word">${word.word}<span class="pos-tag">${word.pos || ''}</span></div>`;
+            document.getElementById('detail-meaning').innerText = word.meaning;
+            document.getElementById('detail-example').innerText = word.example || '';
+            const transEl = document.getElementById('detail-translation');
+            if (word.translation) { transEl.innerText = word.translation; transEl.style.display = 'block'; } 
+            else { transEl.style.display = 'none'; }
+            
+            detail.style.display = 'none';
+            document.getElementById('pre-reveal').style.display = 'flex';
+            document.getElementById('post-reveal').style.display = 'none';
+            document.getElementById('spell-actions').style.display = 'none';
+            if (this.enableAudioBeforeButton) this.speak(word.word);
+            this.startTimer();
+        } else {
+            main.innerHTML = `<div style="color:var(--text-sub); margin-bottom:15px;">${word.meaning} (${word.pos || ''})</div><input type="text" id="spell-input" style="font-size:2rem; padding:15px; width:100%; border-radius:15px; border:2px solid #eee; text-align:center" autocomplete="off">`;
+            detail.style.display = 'none';
+            document.getElementById('pre-reveal').style.display = 'none';
+            document.getElementById('post-reveal').style.display = 'none';
+            document.getElementById('spell-actions').style.display = 'flex';
+            document.getElementById('btn-chk').style.display = 'block';
+            document.getElementById('btn-nxt').style.display = 'none';
+            setTimeout(() => document.getElementById('spell-input').focus(), 50);
+            this.speak(word.word);
+        }
+    }
+
+    startTimer() {
+        const sec = parseInt(document.getElementById('timer-setting').value);
+        if (sec === 0) return;
+        const bar = document.getElementById('timer-bar');
+        document.getElementById('timer-wrap').style.display = 'block';
+        bar.style.transition = 'none'; bar.style.width = '100%';
+        setTimeout(() => { bar.style.transition = `width ${sec}s linear`; bar.style.width = '0%'; }, 50);
+        this.timer = setTimeout(() => { if (!this.isRevealed) this.reveal(); }, sec * 1000);
+    }
+
+    reveal() {
+        this.isRevealed = true;
+        clearTimeout(this.timer);
+        document.getElementById('timer-wrap').style.display = 'none';
+        document.getElementById('word-details').style.display = 'block';
+        document.getElementById('pre-reveal').style.display = 'none';
+        document.getElementById('post-reveal').style.display = 'flex';
+        if (this.enableAudioAfterButton) {
+            const word = this.queue[this.currentIndex];
+            this.speak(word.example || word.word);
+        }
+    }
+
+    handleResult(ok) {
+        const word = this.queue[this.currentIndex];
+        if (!ok) this.recordMissedWord(word);
+        this.updateSRS(word, ok);
+        // 等待语音结束后才进入下一个
+        this.waitForSpeechEnd(() => this.next());
+    }
+
+    checkSpell() {
+        const inp = document.getElementById('spell-input');
+        const word = this.queue[this.currentIndex];
+        const ok = inp.value.trim().toLowerCase() === word.word.toLowerCase();
+        this.isRevealed = true;
+        inp.style.borderColor = ok ? 'var(--success)' : 'var(--danger)';
+        
+        if (!ok) {
+            document.getElementById('card-main-content').innerHTML += `<div style="color:var(--danger); font-size:1.5rem; margin-top:10px">${word.word}</div>`;
+            this.recordMissedWord(word);
+        }
+        
+        document.getElementById('btn-chk').style.display = 'none';
+        document.getElementById('btn-nxt').style.display = 'block';
+        this.updateSRS(word, ok);
+        // 拼写模式核对后等待语音（若有），但无需额外动作，按钮已就绪
+    }
+
+    updateSRS(word, ok) {
+        const item = this.db.find(w => w.word === word.word);
+        if (item) {
+            item.stage = ok ? Math.min((item.stage || 0) + 1, 5) : 0;
+            item.nextReview = Date.now() + [0, 1, 3, 7, 15, 30][item.stage] * 24 * 3600 * 1000;
+            this.saveDB();
+            this.updateStats();
+        }
+    }
+
+    next() {
+        this.currentIndex++;
+        if (this.currentIndex < this.queue.length) {
+            this.renderCard();
+        } else {
+            this.markTodayCompleted();
+            this.renderCalendar();
+            // 重新生成包含今日错词的队列
+            this.resetSession(true);
+        }
+    }
+
+    // 精准等待语音播放结束（基于 onend 事件）
+    waitForSpeechEnd(callback) {
+        const utterance = this.currentUtterance;
+        if (utterance && speechSynthesis.speaking) {
+            // 语音正在播放，设置 onend 回调
+            const originalOnEnd = utterance.onend;
+            utterance.onend = () => {
+                if (originalOnEnd) originalOnEnd();
+                callback();
+            };
+            // 安全超时：若 5 秒后仍未触发，强制执行
+            const timeout = setTimeout(() => {
+                if (utterance.onend) {
+                    utterance.onend = originalOnEnd;
+                }
+                callback();
+            }, 5000);
+            // 确保超时被清理
+            const finalCallback = () => {
+                clearTimeout(timeout);
+                callback();
+            };
+            utterance.onend = finalCallback;
+        } else {
+            // 没有语音播放时，短延迟后直接继续
+            setTimeout(callback, 300);
+        }
+    }
+
+    // --- 滑块与模式 ---
+    toggleMode() {
+        this.mode = document.getElementById('mode-slider').checked ? 'spell' : 'read';
+        this.updateSliderLabels();
+        this.resetSession();
+    }
+
+    updateSliderLabels() {
+        const readLabel = document.getElementById('slider-read-label');
+        const spellLabel = document.getElementById('slider-spell-label');
+        const slider = document.getElementById('mode-slider');
+        if (this.mode === 'read') {
+            readLabel.classList.add('active'); spellLabel.classList.remove('active'); slider.checked = false;
+        } else {
+            readLabel.classList.remove('active'); spellLabel.classList.add('active'); slider.checked = true;
+        }
+    }
+
+    // --- 词库管理 ---
+    renderLibrary() {
+        const filter = document.getElementById('lib-filter').value;
+        const tbody = document.getElementById('library-tbody');
+        tbody.innerHTML = '';
+        
+        let list = this.getFilteredList(filter);
+        this.totalPages = Math.ceil(list.length / this.itemsPerPage);
+        this.currentPage = Math.min(this.currentPage, this.totalPages);
+        if (this.currentPage < 1) this.currentPage = 1;
+
+        const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+        const currentPageData = list.slice(startIndex, startIndex + this.itemsPerPage);
+
+        currentPageData.forEach((w) => {
+            const isSel = this.selectedSet.has(w.word);
+            tbody.innerHTML += `<tr style="${isSel ? 'background:#f5f3ff' : ''}">
+                <td><input type="checkbox" ${isSel ? 'checked' : ''} onchange="app.toggleOne('${w.word}', this.checked)"></td>
+                <td contenteditable="true" class="editable" onblur="app.updateWordField('${w.word}', 'word', this.innerText)"><b>${w.word}</b></td>
+                <td contenteditable="true" class="editable" onblur="app.updateWordField('${w.word}', 'pos', this.innerText)">${w.pos || ''}</td>
+                <td contenteditable="true" class="editable" onblur="app.updateWordField('${w.word}', 'meaning', this.innerText)">${w.meaning}</td>
+                <td contenteditable="true" class="editable" onblur="app.updateWordField('${w.word}', 'example', this.innerText)" style="font-size:0.8rem; color:var(--text-sub)">${w.example || ''}</td>
+                <td contenteditable="true" class="editable" onblur="app.updateWordField('${w.word}', 'translation', this.innerText)" style="font-size:0.8rem; color:var(--text-sub)">${w.translation || ''}</td>
+                <td>
+                    <select onchange="app.updateWordField('${w.word}', 'stage', this.value)" style="border:1px solid #e2e8f0; padding:5px 10px; border-radius:5px;">
+                        ${[0, 1, 2, 3, 4, 5].map(lvl => `<option value="${lvl}" ${w.stage == lvl ? 'selected' : ''}>Lv.${lvl}</option>`).join('')}
+                    </select>
+                </td>
+            </tr>`;
+        });
+        this.updatePagination();
+    }
+
+    updatePagination() {
+        const pagination = document.getElementById('library-pagination');
+        if (this.totalPages <= 1) { pagination.innerHTML = ''; return; }
+        let html = '<div class="pagination">';
+        html += `<button onclick="app.goToPage(${this.currentPage - 1})" ${this.currentPage <= 1 ? 'disabled' : ''}>上一页</button>`;
+        for (let i = 1; i <= this.totalPages; i++) {
+            if (i === 1 || i === this.totalPages || (i >= this.currentPage - 2 && i <= this.currentPage + 2)) {
+                html += `<button onclick="app.goToPage(${i})" ${i === this.currentPage ? 'style="background:var(--primary);color:white"' : ''}>${i}</button>`;
+            } else if (i === this.currentPage - 3 || i === this.currentPage + 3) {
+                html += '<span>...</span>';
+            }
+        }
+        html += `<button onclick="app.goToPage(${this.currentPage + 1})" ${this.currentPage >= this.totalPages ? 'disabled' : ''}>下一页</button></div>`;
+        pagination.innerHTML = html;
+    }
+
+    goToPage(page) {
+        if (page < 1 || page > this.totalPages) return;
+        this.currentPage = page;
+        this.renderLibrary();
+    }
+
+    updateWordField(wordStr, field, value) {
+        const word = this.db.find(w => w.word === wordStr);
+        if (word) {
+            if (field === 'word' && this.selectedSet.has(word.word)) {
+                this.selectedSet.delete(word.word);
+                this.selectedSet.add(value);
+            }
+            word[field] = field === 'stage' ? parseInt(value) : value;
+            this.saveDB();
+            
+            // 若当前学习队列中包含该单词，同步更新引用
+            const idxInQueue = this.queue.findIndex(w => w.word === wordStr);
+            if (idxInQueue !== -1) {
+                this.queue[idxInQueue] = { ...word };
+                // 如果是正在展示的卡片，刷新显示
+                if (idxInQueue === this.currentIndex) {
+                    this.renderCard();
+                }
+            }
+        }
+    }
+
+    toggleOne(w, c) {
+        if (c) this.selectedSet.add(w); else this.selectedSet.delete(w);
+        this.updateBatchBtn();
+        this.renderLibrary();
+    }
+
+    toggleAll(c) {
+        const filter = document.getElementById('lib-filter').value;
+        let list = this.getFilteredList(filter);
+        list.forEach(w => c ? this.selectedSet.add(w.word) : this.selectedSet.delete(w.word));
+        this.updateBatchBtn();
+        this.renderLibrary();
+    }
+
+    updateBatchBtn() {
+        const btn = document.getElementById('batch-del-btn');
+        btn.style.display = this.selectedSet.size > 0 ? 'block' : 'none';
+        btn.innerText = `删除已选 (${this.selectedSet.size})`;
+    }
+
+    deleteSelected() {
+        if (!confirm('确认删除选中单词？')) return;
+        this.db = this.db.filter(w => !this.selectedSet.has(w.word));
+        this.selectedSet.clear();
+        this.saveDB();
+        this.updateStats();
+        this.updateSelectors();
+        this.renderLibrary();
+        this.updateBatchBtn();
+        this.resetSession();
+    }
+
+    exportCSV() {
+        const data = this.db.map(w => ({
+            单词: w.word, 词性: w.pos, 释义: w.meaning, 例句: w.example,
+            翻译: w.translation || '', 发音: w.pronunciation || '', 分类: w.category || '', 备注: w.notes || '', 阶段: w.stage, 等级: w.level || 0
+        }));
+        const csv = Papa.unparse(data);
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: 'text/csv' }));
+        link.download = "我的词库导出.csv"; link.click();
+    }
+
+    printWords(title, wordsArray) {
+        if (wordsArray.length === 0) { alert('暂无错词记录！'); return; }
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <!DOCTYPE html><html><head><title>${title}</title>
+            <style>body{font-family:Arial,sans-serif;margin:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:12px;text-align:left}th{background-color:#f2f2f2}</style>
+            </head><body><h1>${title}</h1><table>
+            <tr><th>单词</th><th>词性</th><th>释义</th><th>例句</th></tr>
+            ${wordsArray.map(w => `<tr><td><strong>${w.word}</strong></td><td>${w.pos || ''}</td><td>${w.meaning}</td><td>${w.example || ''}</td></tr>`).join('')}
+            </table><script>window.onload=function(){window.print();window.close()}<\/script></body></html>
+        `);
+    }
+
+    printMissed() {
+        const today = this.getTodayStr();
+        this.printWords(`今日错词 (${today})`, this.missedWords[today] || []);
+    }
+
+    // --- 导入系统 ---
+    handleFile(f) {
+        Papa.parse(f, {
+            header: true, complete: (res) => {
+                this.tempData = res.data.map(r => ({
+                    word: r.word || '', pos: r.part_of_speech || r.pos || '', meaning: r.meaning || '',
+                    example: r.example || '', translation: r.translation || '', pronunciation: r.pronunciation || '',
+                    category: r.category || '默认', notes: r.notes || '', level: r.level ? parseInt(r.level) : 0
+                }));
+                document.getElementById('import-init').style.display = 'none';
+                document.getElementById('import-preview').style.display = 'block';
+                const tbody = document.getElementById('preview-tbody');
+                tbody.innerHTML = this.tempData.map((r, i) => `<tr>
+                    <td contenteditable="true" class="editable" onblur="app.tempData[${i}].word=this.innerText">${r.word}</td>
+                    <td contenteditable="true" class="editable" onblur="app.tempData[${i}].pos=this.innerText">${r.pos}</td>
+                    <td contenteditable="true" class="editable" onblur="app.tempData[${i}].meaning=this.innerText">${r.meaning}</td>
+                    <td contenteditable="true" class="editable" onblur="app.tempData[${i}].example=this.innerText">${r.example}</td>
+                    <td contenteditable="true" class="editable" onblur="app.tempData[${i}].translation=this.innerText">${r.translation}</td>
+                    <td contenteditable="true" class="editable" onblur="app.tempData[${i}].category=this.innerText">${r.category}</td>
+                    <td contenteditable="true" class="editable" onblur="app.tempData[${i}].level=parseInt(this.innerText)||0">${r.level}</td>
+                </tr>`).join('');
+            }
+        });
+    }
+
+    confirmImport() {
+        this.tempData.forEach(item => {
+            if (item.word) {
+                const idx = this.db.findIndex(d => d.word === item.word);
+                if (idx > -1) Object.assign(this.db[idx], item);
+                else this.db.push({ ...item, stage: 0 });
+            }
+        });
+        this.saveDB();
+        location.reload();
+    }
+
+    // --- 日历功能 ---
+    renderCalendar() {
+        const year = this.currentMonth.getFullYear();
+        const month = this.currentMonth.getMonth();
+        document.getElementById('calendar-title').textContent = `${year}年 ${month + 1}月`;
+        const firstDay = new Date(year, month, 1);
+        const startDate = new Date(firstDay);
+        startDate.setDate(startDate.getDate() - firstDay.getDay());
+        const calendarGrid = document.getElementById('calendar-grid');
+        calendarGrid.innerHTML = '';
+
+        ['日', '一', '二', '三', '四', '五', '六'].forEach(day => {
+            const el = document.createElement('div');
+            el.className = 'calendar-day'; el.style.fontWeight = 'bold'; el.textContent = day;
+            calendarGrid.appendChild(el);
+        });
+
+        const todayStr = this.getTodayStr();
+        for (let i = 0; i < 42; i++) {
+            const date = new Date(startDate);
+            date.setDate(startDate.getDate() + i);
+            const dateStr = date.toISOString().split('T')[0];
+            const el = document.createElement('div');
+            el.className = 'calendar-day';
+            if (date.getMonth() === month) {
+                el.classList.add('current-month');
+                if (dateStr === todayStr) el.classList.add('today');
+                if (this.missedWords[dateStr] && this.missedWords[dateStr].length > 0) el.classList.add('missed');
+                if (this.completedDates.includes(dateStr)) el.classList.add('completed');
+                el.textContent = date.getDate();
+                el.onclick = () => this.showDayDetails(date);
+            } else {
+                el.classList.add('empty');
+            }
+            calendarGrid.appendChild(el);
+        }
+    }
+
+    prevMonth() { this.currentMonth.setMonth(this.currentMonth.getMonth() - 1); this.renderCalendar(); }
+    nextMonth() { this.currentMonth.setMonth(this.currentMonth.getMonth() + 1); this.renderCalendar(); }
+    goToToday() { this.currentMonth = new Date(); this.renderCalendar(); }
+
+    showDayDetails(date) {
+        const dateStr = date.toISOString().split('T')[0];
+        this.currentDateDetail = dateStr;
+        document.getElementById('modal-date-title').textContent = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 错词记录`;
+        const list = document.getElementById('missed-words-list');
+        list.innerHTML = '';
+        const words = this.missedWords[dateStr] || [];
+        if (words.length > 0) {
+            words.forEach(w => {
+                const li = document.createElement('li');
+                li.innerHTML = `<strong>${w.word}</strong> (${w.pos || ''}) - ${w.meaning}`;
+                list.appendChild(li);
+            });
+        } else {
+            const li = document.createElement('li');
+            li.textContent = '今日无错词记录'; li.style.color = '#94a3b8'; list.appendChild(li);
+        }
+        document.getElementById('day-detail-modal').style.display = 'flex';
+    }
+
+    closeDayDetail() { document.getElementById('day-detail-modal').style.display = 'none'; }
+
+    printDayMissed() {
+        if (!this.currentDateDetail) return;
+        this.printWords(`${this.currentDateDetail} 错词记录`, this.missedWords[this.currentDateDetail] || []);
+    }
+
+    importCalendar() {
+        const input = document.createElement('input');
+        input.type = 'file'; input.accept = '.json';
+        input.onchange = (e) => {
+            const file = e.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const data = JSON.parse(event.target.result);
+                    this.missedWords = { ...this.missedWords, ...data.missedWords };
+                    this.completedDates = Array.from(new Set([...this.completedDates, ...data.completedDates]));
+                    this.saveMissedWords();
+                    this.saveCompletedDates();
+                    alert('日历数据导入成功！'); this.renderCalendar();
+                } catch (error) { alert('导入失败：文件格式不正确'); }
+            };
+            reader.readAsText(file);
+        };
+        input.click();
+    }
+
+    exportCalendar() {
+        const data = { missedWords: this.missedWords, completedDates: this.completedDates };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `日历数据_${this.getTodayStr()}.json`; a.click();
+        URL.revokeObjectURL(a.href);
+    }
+
+    addMakeupCard() {
+        const dateStr = prompt('请输入要补卡的日期 (格式: YYYY-MM-DD):');
+        if (!dateStr) return;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) { alert('日期格式不正确，请使用 YYYY-MM-DD 格式'); return; }
+        
+        const inputDate = new Date(dateStr);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        if (inputDate > today) { alert('不能补未来的卡片！'); return; }
+
+        const problemWords = prompt(`请输入该日期有问题的词汇，用逗号分隔 (如: word1,word2,word3):`);
+        if (!problemWords) return;
+
+        const wordsList = problemWords.split(',').map(w => w.trim()).filter(w => w);
+        if (!this.missedWords[dateStr]) this.missedWords[dateStr] = [];
+        
+        wordsList.forEach(wordText => {
+            const foundWord = this.db.find(w => w.word === wordText);
+            const wordObj = foundWord ? { ...foundWord } : { word: wordText, pos: '', meaning: '', example: '', translation: '' };
+            if (!this.missedWords[dateStr].some(w => w.word === wordText)) {
+                this.missedWords[dateStr].push(wordObj);
+            }
+        });
+
+        if (!this.completedDates.includes(dateStr)) this.completedDates.push(dateStr);
+        this.saveMissedWords();
+        this.saveCompletedDates();
+        alert(`补卡成功！${dateStr} 添加了 ${wordsList.length} 个问题词汇`);
+        this.renderCalendar();
+    }
+
+    // --- 基础工具 ---
+    speak(t) {
+        speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(t);
+        utterance.lang = 'en-US';
+        utterance.rate = this.speechRate;
+        utterance.pitch = this.speechPitch;
+        this.currentUtterance = utterance;
+        speechSynthesis.speak(utterance);
+    }
+
+    updateStats() {
+        document.getElementById('stat-total').innerText = this.db.length;
+        document.getElementById('stat-due').innerText = this.db.filter(w => (w.nextReview || 0) <= Date.now()).length;
+        document.getElementById('stat-mastered').innerText = this.db.filter(w => w.stage >= 5).length;
+    }
+
+    updateSelectors() {
+        const cats = [...new Set(this.db.map(w => w.category || '默认'))];
+        const html = `<option value="due">📅 待复习</option><option value="all">📁 全部单词</option>` + cats.map(c => `<option value="${c}">${c}</option>`).join('');
+        document.getElementById('study-scope').innerHTML = html;
+        document.getElementById('lib-filter').innerHTML = `<option value="all">全部分类</option>` + cats.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
+
+    switchTab(t) {
+        document.querySelectorAll('.view-section').forEach(s => s.classList.toggle('active', s.id === `view-${t}`));
+        document.querySelectorAll('.nav-slider button').forEach(b => b.classList.toggle('active', b.id === `nav-${t}`));
+        this.currentView = t;
+        if (t === 'library') this.renderLibrary();
+        if (t === 'calendar') this.renderCalendar();
+    }
+
+    giveHint() {
+        const w = this.queue[this.currentIndex].word;
+        document.getElementById('spell-input').placeholder = `${w[0]}... (${w.length}个字母)`;
+    }
+}
+
+const app = new VocabApp();
+</script>
+</body>
+</html>
